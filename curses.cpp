@@ -56,6 +56,7 @@ Component CreateTreeFromDict(const TorrentDict& dict, int depth = 0) {
     children.push_back(CreateTreeNode(key, value, depth + 1));
   }
   
+  // Wrap children in a vertical container for proper navigation
   return Container::Vertical(std::move(children));
 }
 
@@ -69,6 +70,7 @@ Component CreateTreeFromList(const TorrentList& list, int depth = 0) {
     children.push_back(CreateTreeNode("[" + std::to_string(i) + "]", list[i], depth + 1));
   }
   
+  // Wrap children in a vertical container for proper navigation
   return Container::Vertical(std::move(children));
 }
 
@@ -78,52 +80,100 @@ Component CreateTreeNode(const string& key, const TorrentValue& val, int depth) 
   if (val.isDict()) {
     auto child_tree = CreateTreeFromDict(val.asDict(), depth);
     
-    return Renderer(child_tree, [key, val, expanded, child_tree, depth] {
+    // Create header button that toggles expansion
+    auto toggle_button = Button(
+        "",
+        [expanded] { *expanded = !*expanded; },
+        ButtonOption::Border()
+    );
+    
+    // Combine header and children in a vertical container
+    auto node_with_children = Container::Vertical({
+        toggle_button,
+        child_tree
+    });
+    
+    // Render with conditional display of children
+    return Renderer(node_with_children, [key, val, expanded, child_tree, depth, toggle_button] {
       string indent(depth * 2, ' ');
       string toggle = *expanded ? "▼ " : "▶ ";
-      auto header = text(indent + toggle + key + ": " + formatValuePreview(val)) | bold;
+      string label = indent + toggle + key + ": " + formatValuePreview(val);
+      
+      // Check if toggle button is focused
+      bool is_focused = toggle_button->Focused();
+      
+      // Create header with cursor indicator and styling
+      auto header_element = text((is_focused ? "→ " : "  ") + label) | bold;
+      if (is_focused) {
+        header_element = header_element | bgcolor(Color::Grey23) | color(Color::White);
+      }
       
       if (*expanded) {
+        // When expanded, show header and children
         return vbox({
-          header,
+          header_element,
           child_tree->Render()
         });
+      } else {
+        // When collapsed, only show header
+        return header_element;
       }
-      return header;
-    }) | CatchEvent([expanded](Event event) {
-      if (event == Event::Return || event == Event::Character(' ')) {
-        *expanded = !*expanded;
-        return true;
-      }
-      return false;
     });
   } else if (val.isList()) {
     auto child_tree = CreateTreeFromList(val.asList(), depth);
     
-    return Renderer(child_tree, [key, val, expanded, child_tree, depth] {
+    auto toggle_button = Button(
+        "",
+        [expanded] { *expanded = !*expanded; },
+        ButtonOption::Border()
+    );
+    
+    auto node_with_children = Container::Vertical({
+        toggle_button,
+        child_tree
+    });
+    
+    return Renderer(node_with_children, [key, val, expanded, child_tree, depth, toggle_button] {
       string indent(depth * 2, ' ');
       string toggle = *expanded ? "▼ " : "▶ ";
-      auto header = text(indent + toggle + key + ": " + formatValuePreview(val)) | bold;
+      string label = indent + toggle + key + ": " + formatValuePreview(val);
+      
+      bool is_focused = toggle_button->Focused();
+      
+      auto header_element = text((is_focused ? "→ " : "  ") + label) | bold;
+      if (is_focused) {
+        header_element = header_element | bgcolor(Color::Grey23) | color(Color::White);
+      }
       
       if (*expanded) {
         return vbox({
-          header,
+          header_element,
           child_tree->Render()
         });
+      } else {
+        return header_element;
       }
-      return header;
-    }) | CatchEvent([expanded](Event event) {
-      if (event == Event::Return || event == Event::Character(' ')) {
-        *expanded = !*expanded;
-        return true;
-      }
-      return false;
     });
   } else {
-    // Leaf node (int or string)
-    return Renderer([key, val, depth] {
+    // Leaf node - simple button with no children
+    auto leaf_button = Button(
+        "",
+        []() {}, // No action on leaf
+        ButtonOption::Border()
+    );
+    
+    return Renderer(leaf_button, [key, val, depth, leaf_button] {
       string indent(depth * 2, ' ');
-      return text(indent + "• " + key + ": " + formatValuePreview(val));
+      string label = indent + "• " + key + ": " + formatValuePreview(val);
+      
+      bool is_focused = leaf_button->Focused();
+      
+      auto content = text((is_focused ? "→ " : "  ") + label) | bold;
+      if (is_focused) {
+        content = content | bgcolor(Color::Grey23) | color(Color::White);
+      }
+      
+      return content;
     });
   }
 }
@@ -138,14 +188,36 @@ Component CreateContentArea(const TorrentValue& root_value) {
   
   auto tree = CreateTreeFromDict(root_value.asDict(), 0);
   
-  int selected = 0;
-  auto tree_with_selection = Container::Vertical({tree});
+  // Wrap tree in Container::Vertical to support arrow key navigation
+  // The tree should start with the first item focused
+  auto tree_container = Container::Vertical({tree});
   
-  return Renderer(tree_with_selection, [tree_with_selection] {
+  // Add hotkey handling for level jumping
+  auto tree_with_hotkeys = CatchEvent(tree_container, [tree_container](Event event) {
+    // Ctrl+U: Jump up one level (multiple up arrow presses)
+    if (event == Event::ArrowUpCtrl) {
+      // Press up arrow 10 times to jump up a level
+      for (int i = 0; i < 10; ++i) {
+        tree_container->OnEvent(Event::ArrowUp);
+      }
+      return true;
+    }
+    // Ctrl+D: Jump down one level (multiple down arrow presses)
+    if (event == Event::ArrowDownCtrl) {
+      // Press down arrow 10 times to jump down a level
+      for (int i = 0; i < 10; ++i) {
+        tree_container->OnEvent(Event::ArrowDown);
+      }
+      return true;
+    }
+    return false;
+  });
+  
+  return Renderer(tree_with_hotkeys, [tree_with_hotkeys] {
     return vbox({
-      text("Torrent Metadata (Space/Enter to expand/collapse)") | bold | underlined,
+      text("Torrent Metadata (↑↓ arrows, Ctrl+U/D to jump levels, Space/Enter to expand) [ACTIVE]") | bold | underlined | color(Color::Green),
       separator(),
-      tree_with_selection->Render() | vscroll_indicator | frame | flex,
+      tree_with_hotkeys->Render() | vscroll_indicator | frame | flex,
     });
   });
 }
@@ -166,25 +238,29 @@ Component CreateApplication(const TorrentValue& root_value) {
       "File", [show_file_menu] { *show_file_menu = !*show_file_menu; },
       ButtonOption::Ascii());
 
-  auto view_button = Button("View", [show_view_menu] { *show_view_menu = !*show_view_menu; },
-                           ButtonOption::Ascii());
+  // Menu bar container (horizontal)
+  auto menu_bar_container = Container::Horizontal({file_button/*, view_button*/});
 
   // Create the content area (can be extended/replaced)
   auto content_area = CreateContentArea(root_value);
 
-  // Main container
+  // Main container - vertical with menu bar and content
   auto container = Container::Vertical({
-      file_button,
-      view_button,
+    //  menu_bar_container,
       content_area,
   });
 
   // Add renderer with custom event handling for both menus
-  auto component = CatchEvent(container, [show_file_menu, show_view_menu](Event event) {
+  auto component = CatchEvent(container, [content_area, show_file_menu](Event event) {
     // Close menus on Escape
-    if ((*show_file_menu || *show_view_menu) && event == Event::Escape) {
+    if(event == Event::ArrowDownCtrl){
       *show_file_menu = false;
-      *show_view_menu = false;
+      return true;
+    }
+    if ((*show_file_menu) && event == Event::Escape) {
+      *show_file_menu = false;
+     
+      content_area.get()->TakeFocus();
       return true;
     }
 
@@ -194,30 +270,28 @@ Component CreateApplication(const TorrentValue& root_value) {
     }
 
     // Close menus on clicks outside
-    if ((*show_file_menu || *show_view_menu) && event.is_mouse()) {
+    if ((*show_file_menu) && event.is_mouse()) {
       *show_file_menu = false;
-      *show_view_menu = false;
+      
     }
 
     return false;
   });
 
   // Wrap with renderer for custom display
-  return Renderer(component, [file_button, view_button, content_area, show_file_menu, show_view_menu] {
+  return Renderer(component, [file_button, content_area, show_file_menu, container] {
     // Render menu bar
     auto menu_bar = hbox({
                         text(" "),
                         file_button->Render(),
-                        text(" | "),
-                        text("Edit") | dim,
-                        text(" | "),
+                        text(" | "), 
                         text("")  ,       
-                        view_button->Render(),
+                        //view_button->Render(),
                         text(" | "),
                         text("Help") | dim,
                         filler(),
                     }) |
-                    bgcolor(Color::Blue);
+                    bgcolor(Color::CadetBlue);
 
     // Render file dropdown if visible
     Element file_dropdown = emptyElement();
@@ -234,34 +308,14 @@ Component CreateApplication(const TorrentValue& root_value) {
                       }) |
                       clear_under;
     }
-
-    // Render view dropdown if visible
-    Element view_dropdown = emptyElement();
-    if (*show_view_menu) {
-      view_dropdown = vbox({
-                          text("") | size(HEIGHT, EQUAL, 1),
-                          window(text("View"), vbox({
-                                                   //text("Zoom In"),
-                                                   //text("Zoom Out"),
-                                                   separator(),
-                                                   //text("Reset Zoom"),
-                                               })) |
-                              size(WIDTH, EQUAL, 25),
-                      }) |
-                      clear_under;
-    }
-
-    // Main content with border
+    // Main content with border and focus indicator
     auto main_content = content_area->Render() | border | flex;
 
     // Combine everything
     return vbox({
-        menu_bar,
-        dbox({
-            main_content,
-            file_dropdown,
-            view_dropdown
-        }) | flex,
+         menu_bar,
+        main_content,
+  //      file_dropdown,
     });
   });
 }
