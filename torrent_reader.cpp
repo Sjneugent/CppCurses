@@ -208,3 +208,12 @@ TorrentDict TorrentReader::parseDict() {
   expect('e');
   return dict;
 }
+
+// Simple validator: root must be a dictionary and contain at least an "info" key.
+// Additional checks (announce, piece length, etc.) can be added later.
+bool TorrentReader::isValidTorrent() const {
+  if (!root.isDict())
+    return false;
+  const auto &dict = root.asDict();
+  return dict.find("info") != dict.end();
+}
