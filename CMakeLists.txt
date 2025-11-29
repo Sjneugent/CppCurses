@@ -24,7 +24,7 @@ if(NOT ftxui_POPULATED)
   FetchCoontent_Populate(ftxui)
   add_subdirectory(${ftxui_SOURCE_DIR} ${ftxui_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
-add_executable(${PROJECT_NAME} curses.cpp torrent_reader.h torrent_reader.cpp)
+add_executable(${PROJECT_NAME} curses.cpp torrent_reader.h torrent_reader.cpp torrent_expander.h torrent_expander.cpp)
 target_link_libraries(${PROJECT_NAME}    PRIVATE ftxui::screen
   PRIVATE ftxui::dom
   PRIVATE ftxui::component)
