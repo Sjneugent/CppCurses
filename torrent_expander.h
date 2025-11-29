@@ -16,7 +16,6 @@ private:
      TorrentExpanderImpl * parent_ = nullptr;
      std::vector<TorrentExpanderImpl*> children_;
 public:
-    TorrentExpanderImpl(/* args */);
     ~TorrentExpanderImpl();
     static TorrentExpander Root();
     TorrentExpander Child();

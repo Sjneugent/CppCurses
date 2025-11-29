@@ -7,10 +7,10 @@
 #include <sstream>
 #include <memory>
 #include <string>
+#include "torrent_expander.h"
 using namespace ftxui;
 
 using std::make_shared;
-
 
 // Helper to format TorrentValue as a std::string preview
 std::string formatValuePreview(const TorrentValue &val)
@@ -58,11 +58,17 @@ std::string formatValuePreview(const TorrentValue &val)
 
 // Recursive function to build tree nodes from TorrentValue
 Component CreateTreeNode(const std::string &key, const TorrentValue &val,
-                         int depth = 0);
+                         int depth, TorrentExpander& expander);
 
-Component CreateTreeFromDict(const TorrentDict &dict, int depth = 0)
+Component CreateTreeFromDict(const TorrentDict &dict, int depth , TorrentExpander& expander)
 {
-  if (dict.empty())
+  // class Impl: public TorrentExpander {
+  //   public: 
+  //   Impl(Component prefix, const TorrentDict & dict, bool is_last, int depth, TorrentExpander& expander): TorrentExpander(expander) {
+  //       Expanded() = (depth < 2); // Auto-expand first 2 levels
+  //   }
+  // };
+   if (dict.empty())
   {
     return Renderer([]
                     { return text("  (empty)") | dim; });
@@ -71,14 +77,14 @@ Component CreateTreeFromDict(const TorrentDict &dict, int depth = 0)
   std::vector<Component> children;
   for (const auto &[key, value] : dict)
   {
-    children.push_back(CreateTreeNode(key, value, depth + 1));
+    children.push_back(CreateTreeNode(key, value, depth + 1, expander));
   }
 
   // Wrap children in a vertical container for proper navigation
   return Container::Vertical(std::move(children));
 }
 
-Component CreateTreeFromList(const TorrentList &list, int depth = 0)
+Component CreateTreeFromList(const TorrentList &list, int depth , TorrentExpander& expander)
 {
   if (list.empty())
   {
@@ -90,7 +96,7 @@ Component CreateTreeFromList(const TorrentList &list, int depth = 0)
   for (size_t i = 0; i < list.size(); ++i)
   {
     children.push_back(
-        CreateTreeNode("[" + std::to_string(i) + "]", list[i], depth + 1));
+        CreateTreeNode("[" + std::to_string(i) + "]", list[i], depth + 1, expander));
   }
 
   // Wrap children in a vertical container for proper navigation
@@ -98,13 +104,13 @@ Component CreateTreeFromList(const TorrentList &list, int depth = 0)
 }
 
 Component CreateTreeNode(const std::string &key, const TorrentValue &val,
-                         int depth)
+                         int depth, TorrentExpander& expander)
 {
   auto expanded = make_shared<bool>(depth < 2); // Auto-expand first 2 levels
 
   if (val.isDict())
   {
-    auto child_tree = CreateTreeFromDict(val.asDict(), depth);
+    auto child_tree = CreateTreeFromDict(val.asDict(), depth, expander);
 
     // Create header button that toggles expansion
     auto toggle_button = Button(
@@ -142,7 +148,7 @@ Component CreateTreeNode(const std::string &key, const TorrentValue &val,
   }
   else if (val.isList())
   {
-    auto child_tree = CreateTreeFromList(val.asList(), depth);
+    auto child_tree = CreateTreeFromList(val.asList(), depth, expander);
 
     auto toggle_button = Button(
         "", [expanded]
@@ -195,7 +201,7 @@ Component CreateTreeNode(const std::string &key, const TorrentValue &val,
 }
 
 // Create tree view from torrent data
-Component CreateContentArea(const TorrentValue &root_value)
+Component CreateContentArea(const TorrentValue &root_value, TorrentExpander& expander)
 {
   if (!root_value.isDict())
   {
@@ -204,7 +210,7 @@ Component CreateContentArea(const TorrentValue &root_value)
                              center; });
   }
 
-  auto tree = CreateTreeFromDict(root_value.asDict(), 0);
+  auto tree = CreateTreeFromDict(root_value.asDict(), 0, expander);
 
   // Wrap tree in Container::Vertical to support arrow key navigation
   // The tree should start with the first item focused
@@ -235,25 +241,7 @@ Component CreateContentArea(const TorrentValue &root_value)
      //     tree_container->Index();
           auto idx = tree_container->Index();
           ftxui::Component child = tree_container->ChildAt(idx);
-          
-          //   auto idx = tree_container->Index();
-          //   ftxui::Component child = tree_container->ChildAt(idx);
-          //   std::cout << "Current index: " << idx << std::endl;
-          //   std::cout << "Child component: " << child.get() << std::endl;
-            
-          //   // Try to find if this child has sub-children (is expandable)
-          //   if (child && child->ChildCount() > 0) {
-          //   std::cout << "Child has " << child->ChildCount() << " sub-children" << std::endl;
-          //   // Could set focus to first sub-child if expanded
-          //   auto first_subchild = child->ChildAt(0);
-          //   if (first_subchild) {
-          //     std::cout << "First sub-child available: " << first_subchild.get(). << std::endl;
-          //     // Criteria: Move to first child if node is expanded
-          //     first_subchild->TakeFocus();
-          //   }
-          //   } else {
-          //   std::cout << "Child is a leaf node or not expandable" << std::endl;
-          //   }
+
           return true;
       }else if(event == Event::K || event == Event::k || event == Event::ArrowUp ){
           tree_container->OnEvent(Event::ArrowUp);
@@ -275,30 +263,11 @@ Component CreateContentArea(const TorrentValue &root_value)
 }
 
 // Create the main application with menu bar and content area
-Component CreateApplication(const TorrentValue &root_value)
+Component CreateApplication(const TorrentValue &root_value, TorrentExpander& expander)
 {
-  // Menu state (shared via captured variables)
-  auto show_file_menu = make_shared<bool>(false);
-  auto file_menu_selected = make_shared<int>(0);
-  auto show_view_menu = make_shared<bool>(false);
-  auto view_menu_selected = make_shared<int>(0);
-  // File menu options
-  auto file_menu_entries = make_shared<std::vector<std::string>>(
-      std::vector<std::string>{/*"New",*/ "Open", /*"Save", "Save As...",*/ "Exit"});
-
-  // File menu button
-  auto file_button = Button(
-      "File", [show_file_menu]
-      { *show_file_menu = !*show_file_menu; },
-      ButtonOption::Ascii());
-
-  // Menu bar container (horizontal)
-  auto menu_bar_container =
-      Container::Horizontal({file_button /*, view_button*/});
 
   // Create the content area (can be extended/replaced)
-  auto content_area = CreateContentArea(root_value);
-
+  auto content_area = CreateContentArea(root_value, expander);
   // Main container - vertical with menu bar and content
   auto container = Container::Vertical({
       //  menu_bar_container,
@@ -307,16 +276,13 @@ Component CreateApplication(const TorrentValue &root_value)
 
   // Add renderer with custom event handling for both menus
   auto component =
-      CatchEvent(container, [content_area, show_file_menu](Event event)
+      CatchEvent(container, [content_area](Event event)
                  {
         // Close menus on Escape
         if (event == Event::ArrowDownCtrl) {
-          *show_file_menu = false;
           return true;
         }
-        if ((*show_file_menu) && event == Event::Escape) {
-          *show_file_menu = false;
-
+        if (  event == Event::Escape) {
           content_area.get()->TakeFocus();
           return true;
         }
@@ -325,58 +291,54 @@ Component CreateApplication(const TorrentValue &root_value)
         if (event == Event::CtrlC) {
           return false;
         } // Close menus on clicks outside
-        if ((*show_file_menu) && event.is_mouse()) {
-          *show_file_menu = false;
+        if ( event.is_mouse()) {
+  
         }
 
         return false; });
 
   // Wrap with renderer for custom display
   return Renderer(
-      component, [file_button, content_area, show_file_menu, container]
+      component, [content_area,container]
       {
-        // Render menu bar
-        auto menu_bar = hbox({
-                            text(" "),
-                            file_button->Render(),
-                            text(" | "),
-                            text(""),
-                            // view_button->Render(),
-                            text(" | "),
-                            text("Help") | dim,
-                            filler(),
-                        }) |
-                        bgcolor(Color::CadetBlue);
-
-        // Render file dropdown if visible
-        Element file_dropdown = emptyElement();
-        if (*show_file_menu) {
-          file_dropdown = vbox({
-                              text("") | size(HEIGHT, EQUAL, 1),
-                              window(text("File"), vbox({
-                                                       text("Open      Ctrl+O"),
-                                                       text("Save      Ctrl+S"),
-                                                       separator(),
-                                                       text("Exit      Ctrl+C"),
-                                                   })) |
-                                  size(WIDTH, EQUAL, 25),
-                          }) |
-                          clear_under;
-        }
-        // Main content with border and focus indicator
         auto main_content = content_area->Render() | border | flex;
 
         // Combine everything
         return vbox({
-            menu_bar,
             main_content,
             //      file_dropdown,
         }); });
 }
+
+class TorrentComponentExpandable : public ComponentBase
+{
+public:
+  explicit TorrentComponentExpandable(TorrentExpander &expander)
+      : expander_(expander) {}
+
+  bool &Expanded() { return expander_->expanded; }
+  bool OnEvent(Event event) override
+  {
+    if(ComponentBase::OnEvent(event))
+      return true;
+    if(event == Event::Character('+')){
+      expander_->Expand();
+      return true;
+    }
+    if(event == Event::Character('-')){
+      expander_->Collapse();
+      return true;
+    }
+    return false;
+  }
+
+private:
+  TorrentExpander &expander_;
+};
 int main()
 {
   TorrentReader tr("/home/backltrack/Tulsa.torrent");
-
+  TorrentExpander expander = TorrentExpanderImpl::Root();
   if (!tr.isValidTorrent())
   {
     std::cerr << "Error: Invalid torrent file\n";
@@ -384,7 +346,7 @@ int main()
   }
 
   auto root = tr.getRoot();
-  auto app = CreateApplication(root);
+  auto app = CreateApplication(root, expander);
 
   auto screen = ScreenInteractive::Fullscreen();
   screen.Loop(app);
