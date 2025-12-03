@@ -8,333 +8,161 @@
 #include <memory>
 #include <string>
 #include "torrent_expander.h"
+#include "torrent_toggle.h"
+#include "torrent_formatter.h"
 using namespace ftxui;
 
 using std::make_shared;
+Component Unimplemented() {
+  return Renderer([] { return text("Unimplemented"); });
+}
+Component FakeHorizontal(Component a, Component b) {
+  auto c = Container::Vertical({a, b});
+  c->SetActiveChild(b);
 
-// Helper to format TorrentValue as a std::string preview
-std::string formatValuePreview(const TorrentValue &val)
-{
-  if (val.isInt())
-  {
-    return std::to_string(val.asInt());
-  }
-  else if (val.isString())
-  {
-    const auto &str = val.asString();
-    // Check if printable
-    bool printable = true;
-    for (char c : str)
-    {
-      if (!isprint(static_cast<unsigned char>(c)) && c != '\n' && c != '\t')
-      {
-        printable = false;
-        break;
-      }
-    }
-    if (printable && str.size() < 60)
-    {
-      return "\"" + str + "\"";
-    }
-    else if (printable)
-    {
-      return "\"" + str.substr(0, 57) + "...\"";
-    }
-    else
-    {
-      return "<binary: " + std::to_string(str.size()) + " bytes>";
-    }
-  }
-  else if (val.isList())
-  {
-    return "[" + std::to_string(val.asList().size()) + " items]";
-  }
-  else if (val.isDict())
-  {
-    return "{" + std::to_string(val.asDict().size()) + " keys}";
-  }
-  return "";
+  return Renderer(c, [a, b] {
+    return hbox({
+        a->Render(),
+        b->Render(),
+    });
+  });
 }
 
-// Recursive function to build tree nodes from TorrentValue
-Component CreateTreeNode(const std::string &key, const TorrentValue &val,
-                         int depth, TorrentExpander& expander);
-
-Component CreateTreeFromDict(const TorrentDict &dict, int depth , TorrentExpander& expander)
+Component From(const TorrentValue & tval, bool is_last, int depth, TorrentExpander & expander)
 {
-  // class Impl: public TorrentExpander {
-  //   public: 
-  //   Impl(Component prefix, const TorrentDict & dict, bool is_last, int depth, TorrentExpander& expander): TorrentExpander(expander) {
-  //       Expanded() = (depth < 2); // Auto-expand first 2 levels
-  //   }
-  // };
-   if (dict.empty())
+  std::cout << "From called: isDict=" << tval.isDict() << ", isList=" << tval.isList() <<  ", isString=" << tval.isString() << "\n";
+  if(tval.isDict())
   {
-    return Renderer([]
-                    { return text("  (empty)") | dim; });
+    
+    return FromDict(Empty(), tval, is_last, depth, expander);
   }
-
-  std::vector<Component> children;
-  for (const auto &[key, value] : dict)
+  else if(tval.isList())
   {
-    children.push_back(CreateTreeNode(key, value, depth + 1, expander));
-  }
-
-  // Wrap children in a vertical container for proper navigation
-  return Container::Vertical(std::move(children));
-}
-
-Component CreateTreeFromList(const TorrentList &list, int depth , TorrentExpander& expander)
-{
-  if (list.empty())
+    return FromList(Empty(), tval.asList(), is_last, depth, expander);
+  }else if(tval.isInt())
   {
-    return Renderer([]
-                    { return text("  (empty)") | dim; });
-  }
-
-  std::vector<Component> children;
-  for (size_t i = 0; i < list.size(); ++i)
+    std::cout << "From number called\n";
+    return FromNumber(tval, is_last);
+  }else if(tval.isString())
   {
-    children.push_back(
-        CreateTreeNode("[" + std::to_string(i) + "]", list[i], depth + 1, expander));
-  }
-
-  // Wrap children in a vertical container for proper navigation
-  return Container::Vertical(std::move(children));
-}
-
-Component CreateTreeNode(const std::string &key, const TorrentValue &val,
-                         int depth, TorrentExpander& expander)
-{
-  auto expanded = make_shared<bool>(depth < 2); // Auto-expand first 2 levels
-
-  if (val.isDict())
-  {
-    auto child_tree = CreateTreeFromDict(val.asDict(), depth, expander);
-
-    // Create header button that toggles expansion
-    auto toggle_button = Button(
-        "", [expanded]
-        { *expanded = !*expanded; }, ButtonOption::Border());
-
-    // Combine header and children in a vertical container
-    auto node_with_children = Container::Vertical({toggle_button, child_tree});
-
-    // Render with conditional display of children
-    return Renderer(node_with_children, [key, val, expanded, child_tree, depth,
-                                         toggle_button]
-                    {
-      std::string indent(depth * 2, ' ');
-      std::string toggle = *expanded ? "▼ " : "▶ ";
-      std::string label = indent + toggle + key + ": " + formatValuePreview(val);
-
-      // Check if toggle button is focused
-      bool is_focused = toggle_button->Focused();
-
-      // Create header with cursor indicator and styling
-      auto header_element = text((is_focused ? "→ " : "  ") + label) | bold;
-      if (is_focused) {
-        header_element =
-            header_element | bgcolor(Color::Grey23) | color(Color::White);
-      }
-
-      if (*expanded) {
-        // When expanded, show header and children
-        return vbox({header_element, child_tree->Render()});
-      } else {
-        // When collapsed, only show header
-        return header_element;
-      } });
-  }
-  else if (val.isList())
-  {
-    auto child_tree = CreateTreeFromList(val.asList(), depth, expander);
-
-    auto toggle_button = Button(
-        "", [expanded]
-        { *expanded = !*expanded; }, ButtonOption::Border());
-
-    auto node_with_children = Container::Vertical({toggle_button, child_tree});
-
-    return Renderer(node_with_children, [key, val, expanded, child_tree, depth,
-                                         toggle_button]
-                    {
-      std::string indent(depth * 2, ' ');
-      std::string toggle = *expanded ? "▼ " : "▶ ";
-      std::string label = indent + toggle + key + ": " + formatValuePreview(val);
-
-      bool is_focused = toggle_button->Focused();
-
-      auto header_element = text((is_focused ? "→ " : "  ") + label) | bold;
-      if (is_focused) {
-        header_element =
-            header_element | bgcolor(Color::Grey23) | color(Color::White);
-      }
-
-      if (*expanded) {
-        return vbox({header_element, child_tree->Render()});
-      } else {
-        return header_element;
-      } });
-  }
+    std::cout << "From string called\n";
+    return FromString(tval, is_last);
+  } 
   else
   {
-    // Leaf node - simple button with no children
-    auto leaf_button = Button(
-        "", []() {}, // No action on leaf
-        ButtonOption::Border());
-
-    return Renderer(leaf_button, [key, val, depth, leaf_button]
-                    {
-      std::string indent(depth * 2, ' ');
-      std::string label = indent + "• " + key + ": " + formatValuePreview(val);
-
-      bool is_focused = leaf_button->Focused();
-
-      auto content = text((is_focused ? "→ " : "  ") + label) | bold;
-      if (is_focused) {
-        content = content | bgcolor(Color::Grey23) | color(Color::White);
-      }
-
-      return content; });
+    std::cout << "Not list or dict\n";
+    return Unimplemented();
   }
 }
 
-// Create tree view from torrent data
-Component CreateContentArea(const TorrentValue &root_value, TorrentExpander& expander)
+
+Component FromList(Component prefix, const TorrentList & list, bool is_last, int depth, TorrentExpander & expander)
 {
-  if (!root_value.isDict())
+  class Impl : public ComponentExpandable
   {
-    return Renderer([]
-                    { return text("Error: Root is not a dictionary") | color(Color::Red) |
-                             center; });
-  }
-
-  auto tree = CreateTreeFromDict(root_value.asDict(), 0, expander);
-
-  // Wrap tree in Container::Vertical to support arrow key navigation
-  // The tree should start with the first item focused
-  auto tree_container = Container::Vertical({tree});
-
-  // Add hotkey handling for level jumping
-  auto tree_with_hotkeys =
-      CatchEvent(tree_container, [tree_container](Event event)
-                 {
-        // Ctrl+U: Jump up one level (multiple up arrow presses)
-        if (event == Event::ArrowUpCtrl) {
-          // Press up arrow 10 times to jump up a level
-          for (int i = 0; i < 10; ++i) {
-            tree_container->OnEvent(Event::ArrowUp);
-          }
-          return true;
-        }
-        // Ctrl+D: Jump down one level (multiple down arrow presses)
-        if (event == Event::ArrowDownCtrl) {
-          // Press down arrow 10 times to jump down a level
-          for (int i = 0; i < 10; ++i) {
-            tree_container->OnEvent(Event::ArrowDown);
-          }
-          return true;
-        }
-      if(event == Event::J || event == Event::j || event == Event::ArrowDown ){
-         tree_container->OnEvent(Event::ArrowDown);
-     //     tree_container->Index();
-          auto idx = tree_container->Index();
-          ftxui::Component child = tree_container->ChildAt(idx);
-
-          return true;
-      }else if(event == Event::K || event == Event::k || event == Event::ArrowUp ){
-          tree_container->OnEvent(Event::ArrowUp);
-          std::cout << "K hit\n";
-          return true;
+  public:
+    Impl(Component prefix, const TorrentList & list, bool is_last, int depth, TorrentExpander & expander)
+        : ComponentExpandable(expander),prefix_(prefix),tlist_(list),is_last_(is_last),depth_(depth)
+    {
+      Expanded() = (depth <= 0);
+       // Auto-expand first 2 levels
+      auto children = Container::Vertical({});
+      int size = static_cast<int>(list.size());
+      for(auto & t: list){
+        bool is_children_last = --size == 0;
+        children->Add(Indentation(From(t, is_children_last, depth + 1, expander_)));
       }
-        std::cout << "Event Hit on tree_with_hotkeys: " << event.DebugString()
-                  << std::endl;
-        return false; });
 
-  return Renderer(tree_with_hotkeys, [tree_with_hotkeys]
-                  { return vbox({
-                        text("Torrent Metadata (↑↓ arrows, Ctrl+U/D to jump levels, "
-                             "Space/Enter to expand) [ACTIVE]") |
-                            bold | underlined | color(Color::Green),
-                        separator(),
-                        tree_with_hotkeys->Render() | vscroll_indicator | frame | flex,
-                    }); });
-}
-
-// Create the main application with menu bar and content area
-Component CreateApplication(const TorrentValue &root_value, TorrentExpander& expander)
-{
-
-  // Create the content area (can be extended/replaced)
-  auto content_area = CreateContentArea(root_value, expander);
-  // Main container - vertical with menu bar and content
-  auto container = Container::Vertical({
-      //  menu_bar_container,
-      content_area,
-  });
-
-  // Add renderer with custom event handling for both menus
-  auto component =
-      CatchEvent(container, [content_area](Event event)
-                 {
-        // Close menus on Escape
-        if (event == Event::ArrowDownCtrl) {
-          return true;
-        }
-        if (  event == Event::Escape) {
-          content_area.get()->TakeFocus();
-          return true;
-        }
-
-        // Handle Ctrl+C to quit
-        if (event == Event::CtrlC) {
-          return false;
-        } // Close menus on clicks outside
-        if ( event.is_mouse()) {
-  
-        }
-
-        return false; });
-
-  // Wrap with renderer for custom display
-  return Renderer(
-      component, [content_area,container]
+      if(is_last)
       {
-        auto main_content = content_area->Render() | border | flex;
+        children->Add(Renderer([] { return text(" ]"); })); 
+      }else {
+        children->Add(Renderer([] { return text("], "); })); 
+      }
+      auto toggle = TorrentToggle("[", is_last ? "[...]" : "[...],", &Expanded());
+      auto upper = Container::Horizontal({FakeHorizontal(prefix_, toggle)});
+      Add(Container::Vertical({upper, Maybe(children, &Expanded())}));
+      // for (size_t i = 0; i < list.size(); ++i)
+      // {
+      //   bool is_children_last = --size == 0;
+      //   children->Add(Indentation(From(list[i], is_children_last, depth + 1, expander_)));
+      // }
 
-        // Combine everything
-        return vbox({
-            main_content,
-            //      file_dropdown,
-        }); });
+  };
+    Component prefix_;
+    const TorrentList& tlist_;
+    bool is_last_;
+    int depth_;
+};
+        return Make<Impl>(prefix, list, is_last, depth, expander);
+
+}
+Component Basic(std::string value, Color c, bool is_last) {
+  return Renderer([value, c, is_last](bool focused) {
+    auto element = paragraph(value) | color(c);
+    if (focused)
+      element = element | inverted | focus;
+    if (!is_last)
+      element = hbox({element, text(",")});
+    return element;
+  });
 }
 
-class TorrentComponentExpandable : public ComponentBase
+Component FromDict(Component prefix, const TorrentValue & val, bool is_last, int depth, TorrentExpander & expander)
 {
-public:
-  explicit TorrentComponentExpandable(TorrentExpander &expander)
-      : expander_(expander) {}
-
-  bool &Expanded() { return expander_->expanded; }
-  bool OnEvent(Event event) override
+  
+  class Impl : public ComponentExpandable
   {
-    if(ComponentBase::OnEvent(event))
-      return true;
-    if(event == Event::Character('+')){
-      expander_->Expand();
-      return true;
-    }
-    if(event == Event::Character('-')){
-      expander_->Collapse();
-      return true;
-    }
-    return false;
-  }
+  public:
+    Impl(Component prefix, const TorrentValue & dict, bool is_last, int depth, TorrentExpander & expander)
+        : ComponentExpandable(expander)
+    {
+      Expanded() = (depth < 2);
+       // Auto-expand first 2 levels
+      auto children = Container::Vertical({});
+      int size = static_cast<int>(dict.asDict().size());
+      for (const auto &[key, value] : dict.asDict())
+      {
+        bool is_children_last = --size == 0;
+        auto prefix = Renderer([key, is_children_last]() {
+          auto element = text("\"" + key + "\": ") | color(Color::Yellow);
+          if (!is_children_last)
+            element = hbox({element, text(" ")});
+          return element;
+        });
+        // children->Add(Indentation(From(key, is_children_last, depth, expander_)));
+        children->Add(prefix);
+        children->Add(Indentation(From(value, is_children_last, depth + 1, expander_)));
+      }
 
-private:
-  TorrentExpander &expander_;
-};
+      if(is_last){
+        children->Add(Renderer([] { return text(" {"); }));
+
+      }else {
+        children->Add(Renderer([] { return text("} "); }));
+      }
+
+      auto toggle = TorrentToggle("{", is_last ? "{...}": "{...},", &Expanded());
+      Add(Container::Vertical({   FakeHorizontal(prefix, toggle),Maybe(children, &Expanded())}));
+  };
+
+}; 
+        return Make<Impl>(prefix, val, is_last, depth, expander);
+
+}
+Component FromString(const TorrentValue & val, bool is_last)
+{
+  return Basic("\"" + val.asString() + "\"", Color::Green, is_last);
+}
+Component FromNumber(const TorrentValue & val, bool is_last)
+{
+  return Basic( std::to_string(val.asInt()), Color::Cyan, is_last);
+}
+
+Component Empty() {
+  return Renderer([] { return text(""); });
+}
+
 int main()
 {
   TorrentReader tr("/home/backltrack/Tulsa.torrent");
@@ -345,11 +173,49 @@ int main()
     return EXIT_FAILURE;
   }
 
-  auto root = tr.getRoot();
-  auto app = CreateApplication(root, expander);
-
+  const TorrentValue & root = tr.getRoot();
+  //starts off as a dict,
+  // 
+  auto app = From(root, true, 0, expander);
+  app = Renderer(app, [app] { return app->Render() | yframe;});
   auto screen = ScreenInteractive::Fullscreen();
-  screen.Loop(app);
+  Event previous_event, next_event;
+  auto wrapped_component = CatchEvent(app, [&](Event event)
+                                                {
+    previous_event = next_event;
+    next_event = event;
+        if (event == Event::Character('G')) {
+      while (app->OnEvent(Event::ArrowUp))
+        ;
+      return true;
+    }
+        if (previous_event == Event::Character('g') &&
+        next_event == Event::Character('g')) {
+      while (app->OnEvent(Event::ArrowDown))
+        ;
+      return true;
+    }
+
+    // Allow the user to quit using 'q' or ESC ---------------------------------
+    if (event == Event::Character('q') || event == Event::Escape) {
+      screen.ExitLoopClosure()();
+      return true;
+    }
+
+    // Convert mouse whell into their corresponding Down/Up events.-------------
+    if (!event.is_mouse())
+      return false;
+    if (event.mouse().button == Mouse::WheelDown) {
+      screen.PostEvent(Event::ArrowDown);
+      return true;
+    }
+    if (event.mouse().button == Mouse::WheelUp) {
+      screen.PostEvent(Event::ArrowUp);
+      return true;
+    }
+    return false; });
+
+  screen.Loop(wrapped_component);
 
   return EXIT_SUCCESS;
 }
