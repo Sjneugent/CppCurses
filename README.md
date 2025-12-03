@@ -1,14 +1,21 @@
-# CppCurses - FTXUI Application
+# CppCurses - Terminal Torrent Viewer
 
-A modern terminal UI application built with [FTXUI](https://github.com/ArthurSonzogni/FTXUI), featuring a clean menu-driven interface with extensible content areas.
+A modern terminal-based torrent metadata viewer built with [FTXUI](https://github.com/ArthurSonzogni/FTXUI), featuring an interactive tree navigation interface with vim-like keybindings.
 
 ## Features
 
-- **Menu Bar** - Blue menu bar with File, Edit, View, and Help menus
-- **File Dropdown** - Functional dropdown menu with common file operations
-- **Bordered Content Area** - Large central workspace for custom content
-- **Keyboard Shortcuts** - Ctrl+C to exit, Escape to close menus
-- **Extensible Design** - Modular components for easy customization
+- **Interactive Tree View**: Navigate torrent file metadata with expandable/collapsible nodes
+- **Smart Rendering**: Compact inline display for simple values, expanded view for complex structures
+- **Vim-like Navigation**: 
+  - `j`/`k` or arrow keys for navigation
+  - `gg` to jump to top, `G` to jump to bottom
+  - Space/Enter to toggle expansion
+- **Styled Interface**: 
+  - Bordered, centered layout with gray background
+  - Blue highlight for selected items
+  - Color-coded values (cyan for numbers, green for strings, yellow for keys)
+- **Bencode Parser**: Full support for torrent file format (.torrent)
+- **Independent Node Expansion**: Each tree node maintains its own expansion state
 
 ## Building
 
@@ -16,68 +23,49 @@ A modern terminal UI application built with [FTXUI](https://github.com/ArthurSon
 mkdir -p build
 cd build
 cmake ..
-ninja
+cmake --build .
 ```
 
 ## Running
 
 ```bash
-./build/TerminalCPP
+./build/TerminalCPP [path/to/file.torrent]
 ```
+
 
 ## Architecture
 
-### Components
+### Core Components
 
-- **`CreateContentArea()`** - Returns a component for the main content area. Replace this function to customize what's displayed in the center of the window.
+- **TorrentReader**: Bencode parser for .torrent files, validates structure
+- **TorrentExpander**: Per-node expansion state management (based on json-tui)
+- **TorrentToggle**: Custom FTXUI component for expandable tree nodes
+- **Tree Rendering**: Recursive component generation (`FromDict`, `FromList`, `From`)
 
-- **`CreateApplication()`** - Builds the complete UI with menu bar, dropdowns, and content area. Returns a composable FTXUI component.
+### File Structure
 
-### Extending the Application
-
-#### Custom Content Area
-
-Replace the `CreateContentArea()` function to add your own content:
-
-```cpp
-Component CreateContentArea() {
-  return Renderer([] {
-    return vbox({
-      text("My Custom Content") | bold,
-      separator(),
-      text("Add your UI elements here"),
-    }) | center | flex;
-  });
-}
-```
-
-#### Adding Menu Items
-
-Modify the `file_menu_entries` vector in `CreateApplication()`:
-
-```cpp
-auto file_menu_entries = std::make_shared<std::vector<std::string>>(
-  std::vector<std::string>{"New", "Open", "Save", "Export", "Exit"}
-);
-```
-
-#### Adding More Menus
-
-Add additional menu buttons to the menu bar:
-
-```cpp
-auto edit_button = Button("Edit", [show_edit_menu] { 
-  *show_edit_menu = !*show_edit_menu; 
-}, ButtonOption::Ascii());
-```
-
-Then include it in the menu bar rendering.
+- `curses.cpp` - Main application and tree rendering logic
+- `torrent_reader.{h,cpp}` - Bencode parser and torrent validation
+- `torrent_expander.{h,cpp}` - Expansion state management
+- `torrent_toggle.{h,cpp}` - Custom toggle component
+- `torrent_formatter.h` - Value formatting utilities
 
 ## Keyboard Shortcuts
 
-- **Ctrl+C** - Exit application
-- **Escape** - Close open dropdown menus
-- **Mouse Click** - Navigate menus and interact with UI
+- **Arrow Keys / j/k** - Navigate up/down through tree
+- **Space / Enter** - Toggle expand/collapse on current node
+- **gg** - Jump to top of tree
+- **G** - Jump to bottom of tree
+- **q / Escape** - Quit application
+- **Mouse Wheel** - Scroll up/down
+
+## Display Features
+
+- Simple key-value pairs displayed inline: `"key": value`
+- Small lists (≤2 primitive items) shown inline: `[item1, item2]`
+- Complex nested structures displayed in expandable tree format
+- Automatic indentation based on nesting depth
+- Color-coded by type for easy readability
 
 ## License
 

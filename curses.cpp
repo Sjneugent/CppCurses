@@ -166,7 +166,7 @@ Component Empty() {
 
 int main(int argc, const char** argv)
 {
-  std::string torrent_path = "/home/backltrack/Tulsa.torrent";
+  std::string torrent_path = "/home/backltrack/debian.torrent";
   
   if (argc >= 2) {
     torrent_path = argv[1];
