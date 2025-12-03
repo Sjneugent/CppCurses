@@ -15,7 +15,7 @@ class TorrentToggleImpl : public ComponentBase {
   Element OnRender() override {
     bool is_focused = Focused();
     bool is_active = Active();
-    auto style = (is_focused || hovered_) ? inverted
+    auto style = (is_focused || hovered_) ? bgcolor(Color::Blue) | color(Color::White) | bold
                  : is_active              ? bold
                                           : nothing;
     auto focus_management = is_focused  ? focus

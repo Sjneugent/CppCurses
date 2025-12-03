@@ -30,7 +30,6 @@ Component FakeHorizontal(Component a, Component b) {
 
 Component From(const TorrentValue & tval, bool is_last, int depth, TorrentExpander & expander)
 {
-  std::cout << "From called: isDict=" << tval.isDict() << ", isList=" << tval.isList() <<  ", isString=" << tval.isString() << "\n";
   if(tval.isDict())
   {
     
@@ -102,7 +101,7 @@ Component Basic(std::string value, Color c, bool is_last) {
   return Renderer([value, c, is_last](bool focused) {
     auto element = paragraph(value) | color(c);
     if (focused)
-      element = element | inverted | focus;
+      element = element | bgcolor(Color::Blue) | color(Color::White) | bold | focus;
     if (!is_last)
       element = hbox({element, text(",")});
     return element;
@@ -167,11 +166,17 @@ Component Empty() {
 
 int main(int argc, const char** argv)
 {
-  TorrentReader tr("/home/backltrack/Tulsa.torrent");
+  std::string torrent_path = "/home/backltrack/Tulsa.torrent";
+  
+  if (argc >= 2) {
+    torrent_path = argv[1];
+  }
+  
+  TorrentReader tr(torrent_path);
   TorrentExpander expander = TorrentExpanderImpl::Root();
   if (!tr.isValidTorrent())
   {
-    std::cerr << "Error: Invalid torrent file\n";
+    std::cerr << "Error: Invalid torrent file: " << torrent_path << "\n";
     return EXIT_FAILURE;
   }
 
@@ -179,7 +184,14 @@ int main(int argc, const char** argv)
   //starts off as a dict,
   // 
   auto app = From(root, true, 0, expander);
-  app = Renderer(app, [app] { return app->Render() | yframe;});
+  app = Renderer(app, [torrent_path, app] { 
+    return vbox({
+      text("Torrent Viewer: " + torrent_path) | bold | center | color(Color::Cyan),
+      separator(),
+      text("Ctrl-C to quit") | italic | center | color(Color::GrayLight),
+      app->Render() | yframe | xflex | bgcolor(Color::Grey19)
+    }) | border | center | bgcolor(Color::Grey23);
+  });
   auto screen = ScreenInteractive::Fullscreen();
   Event previous_event, next_event;
   auto wrapped_component = CatchEvent(app, [&](Event event)
