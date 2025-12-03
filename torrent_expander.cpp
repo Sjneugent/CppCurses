@@ -31,6 +31,15 @@ TorrentExpander TorrentExpanderImpl::Child()
   return child;
 }
 
+void TorrentExpanderImpl::SetExpanded(bool value) {
+  expanded = value;
+}
+
+bool TorrentExpanderImpl::Toggle() {
+  expanded = !expanded;
+  return expanded;
+}
+
 bool TorrentExpanderImpl::Expand() {
   int min_level = MinLevel();
   Expand(min_level + 1);

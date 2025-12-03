@@ -70,12 +70,13 @@ Component FromList(Component prefix, const TorrentList & list, bool is_last, int
       int size = static_cast<int>(list.size());
       for(auto & t: list){
         bool is_children_last = --size == 0;
-        children->Add(Indentation(From(t, is_children_last, depth + 1, expander_)));
+        auto child_expander = expander_->Child();
+        children->Add(Indentation(From(t, is_children_last, depth + 1, child_expander)));
       }
 
       if(is_last)
       {
-        children->Add(Renderer([] { return text(" ]"); })); 
+        children->Add(Renderer([] { return text("]"); })); 
       }else {
         children->Add(Renderer([] { return text("], "); })); 
       }
@@ -132,14 +133,15 @@ Component FromDict(Component prefix, const TorrentValue & val, bool is_last, int
         });
         // children->Add(Indentation(From(key, is_children_last, depth, expander_)));
         children->Add(prefix);
-        children->Add(Indentation(From(value, is_children_last, depth + 1, expander_)));
+        auto child_expander = expander_->Child();
+        children->Add(Indentation(From(value, is_children_last, depth + 1, child_expander)));
       }
 
       if(is_last){
-        children->Add(Renderer([] { return text(" {"); }));
+        children->Add(Renderer([] { return text("{"); }));
 
       }else {
-        children->Add(Renderer([] { return text("} "); }));
+        children->Add(Renderer([] { return text("}"); }));
       }
 
       auto toggle = TorrentToggle("{", is_last ? "{...}": "{...},", &Expanded());
@@ -163,7 +165,7 @@ Component Empty() {
   return Renderer([] { return text(""); });
 }
 
-int main()
+int main(int argc, const char** argv)
 {
   TorrentReader tr("/home/backltrack/Tulsa.torrent");
   TorrentExpander expander = TorrentExpanderImpl::Root();

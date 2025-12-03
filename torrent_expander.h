@@ -20,6 +20,10 @@ public:
     static TorrentExpander Root();
     TorrentExpander Child();
 
+    // Non-recursive controls for per-node expansion.
+    void SetExpanded(bool value);
+    bool Toggle();
+
     bool Expand();
     bool Collapse();
     int MinLevel() const;
