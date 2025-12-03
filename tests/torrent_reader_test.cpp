@@ -2,6 +2,7 @@
 #include "torrent_reader.h"
 #include <fstream>
 #include <filesystem>
+#include <limits>
 
 namespace fs = std::filesystem;
 
@@ -11,16 +12,44 @@ protected:
         test_data_dir = fs::path(__FILE__).parent_path() / "data";
     }
 
+    void TearDown() override {
+        // Clean up any temporary files created during tests
+        for (const auto& temp_file : temp_files) {
+            if (fs::exists(temp_file)) {
+                fs::remove(temp_file);
+            }
+        }
+        temp_files.clear();
+    }
+
+    // Helper to create a temporary test file
+    fs::path CreateTempFile(const std::string& name, const std::string& content) {
+        auto temp_file = test_data_dir / name;
+        std::ofstream out(temp_file);
+        out << content;
+        out.close();
+        temp_files.push_back(temp_file);
+        return temp_file;
+    }
+
+    // Helper to create a binary temporary test file
+    fs::path CreateTempBinaryFile(const std::string& name, const std::string& content) {
+        auto temp_file = test_data_dir / name;
+        std::ofstream out(temp_file, std::ios::binary);
+        out << content;
+        out.close();
+        temp_files.push_back(temp_file);
+        return temp_file;
+    }
+
     fs::path test_data_dir;
+    std::vector<fs::path> temp_files;
 };
 
 // Test parsing simple integer (wrapped in dict as TorrentReader expects)
 TEST_F(TorrentReaderTest, ParseSimpleInteger) {
     // Create a dict with an integer value
-    auto temp_file = test_data_dir / "dict_with_int.torrent";
-    std::ofstream out(temp_file);
-    out << "d5:valuei42ee";
-    out.close();
+    auto temp_file = CreateTempFile("dict_with_int.torrent", "d5:valuei42ee");
     
     TorrentReader reader(temp_file.string());
     const auto& root = reader.getRoot();
@@ -29,16 +58,11 @@ TEST_F(TorrentReaderTest, ParseSimpleInteger) {
     const auto& dict = root.asDict();
     ASSERT_TRUE(dict.find("value") != dict.end());
     EXPECT_EQ(dict.at("value").asInt(), 42);
-    
-    fs::remove(temp_file);
 }
 
 // Test parsing simple string (wrapped in dict)
 TEST_F(TorrentReaderTest, ParseSimpleString) {
-    auto temp_file = test_data_dir / "dict_with_string.torrent";
-    std::ofstream out(temp_file);
-    out << "d5:value5:helloe";
-    out.close();
+    auto temp_file = CreateTempFile("dict_with_string.torrent", "d5:value5:helloe");
     
     TorrentReader reader(temp_file.string());
     const auto& root = reader.getRoot();
@@ -47,16 +71,11 @@ TEST_F(TorrentReaderTest, ParseSimpleString) {
     const auto& dict = root.asDict();
     ASSERT_TRUE(dict.find("value") != dict.end());
     EXPECT_EQ(dict.at("value").asString(), "hello");
-    
-    fs::remove(temp_file);
 }
 
 // Test parsing simple list (wrapped in dict)
 TEST_F(TorrentReaderTest, ParseSimpleList) {
-    auto temp_file = test_data_dir / "dict_with_list.torrent";
-    std::ofstream out(temp_file);
-    out << "d4:listli1ei2ei3eee";
-    out.close();
+    auto temp_file = CreateTempFile("dict_with_list.torrent", "d4:listli1ei2ei3eee");
     
     TorrentReader reader(temp_file.string());
     const auto& root = reader.getRoot();
@@ -70,8 +89,6 @@ TEST_F(TorrentReaderTest, ParseSimpleList) {
     EXPECT_EQ(list[0].asInt(), 1);
     EXPECT_EQ(list[1].asInt(), 2);
     EXPECT_EQ(list[2].asInt(), 3);
-    
-    fs::remove(temp_file);
 }
 
 // Test parsing simple dictionary
@@ -210,11 +227,7 @@ TEST_F(TorrentReaderTest, TorrentValueTypeChecking) {
 
 // Test negative integers
 TEST_F(TorrentReaderTest, ParseNegativeInteger) {
-    // Create a temporary file with negative integer
-    auto temp_file = test_data_dir / "temp_negative.torrent";
-    std::ofstream out(temp_file);
-    out << "d5:valuei-42ee";
-    out.close();
+    auto temp_file = CreateTempFile("temp_negative.torrent", "d5:valuei-42ee");
     
     TorrentReader reader(temp_file.string());
     const auto& root = reader.getRoot();
@@ -223,16 +236,12 @@ TEST_F(TorrentReaderTest, ParseNegativeInteger) {
     const auto& dict = root.asDict();
     ASSERT_TRUE(dict.find("value") != dict.end());
     EXPECT_EQ(dict.at("value").asInt(), -42);
-    
-    fs::remove(temp_file);
 }
 
 // Test large integer
 TEST_F(TorrentReaderTest, ParseLargeInteger) {
-    auto temp_file = test_data_dir / "temp_large.torrent";
-    std::ofstream out(temp_file);
-    out << "d5:valuei9223372036854775807ee";  // Max long long
-    out.close();
+    const auto max_ll = std::numeric_limits<long long>::max();
+    auto temp_file = CreateTempFile("temp_large.torrent", "d5:valuei9223372036854775807ee");
     
     TorrentReader reader(temp_file.string());
     const auto& root = reader.getRoot();
@@ -240,17 +249,12 @@ TEST_F(TorrentReaderTest, ParseLargeInteger) {
     ASSERT_TRUE(root.isDict());
     const auto& dict = root.asDict();
     ASSERT_TRUE(dict.find("value") != dict.end());
-    EXPECT_EQ(dict.at("value").asInt(), 9223372036854775807LL);
-    
-    fs::remove(temp_file);
+    EXPECT_EQ(dict.at("value").asInt(), max_ll);
 }
 
 // Test empty string
 TEST_F(TorrentReaderTest, ParseEmptyString) {
-    auto temp_file = test_data_dir / "temp_empty_str.torrent";
-    std::ofstream out(temp_file);
-    out << "d3:str0:e";
-    out.close();
+    auto temp_file = CreateTempFile("temp_empty_str.torrent", "d3:str0:e");
     
     TorrentReader reader(temp_file.string());
     const auto& root = reader.getRoot();
@@ -259,16 +263,11 @@ TEST_F(TorrentReaderTest, ParseEmptyString) {
     const auto& dict = root.asDict();
     ASSERT_TRUE(dict.find("str") != dict.end());
     EXPECT_EQ(dict.at("str").asString(), "");
-    
-    fs::remove(temp_file);
 }
 
 // Test empty list
 TEST_F(TorrentReaderTest, ParseEmptyList) {
-    auto temp_file = test_data_dir / "temp_empty_list.torrent";
-    std::ofstream out(temp_file);
-    out << "d4:listlee";
-    out.close();
+    auto temp_file = CreateTempFile("temp_empty_list.torrent", "d4:listlee");
     
     TorrentReader reader(temp_file.string());
     const auto& root = reader.getRoot();
@@ -277,8 +276,6 @@ TEST_F(TorrentReaderTest, ParseEmptyList) {
     const auto& dict = root.asDict();
     ASSERT_TRUE(dict.find("list") != dict.end());
     EXPECT_EQ(dict.at("list").asList().size(), 0);
-    
-    fs::remove(temp_file);
 }
 
 // Test empty dictionary
@@ -307,12 +304,10 @@ TEST_F(TorrentReaderTest, InvalidTorrentNoInfo) {
 
 // Test binary string data
 TEST_F(TorrentReaderTest, ParseBinaryString) {
-    auto temp_file = test_data_dir / "temp_binary.torrent";
-    std::ofstream out(temp_file, std::ios::binary);
-    out << "d4:data5:";
-    out.write("\x00\x01\x02\x03\x04", 5);
-    out << "e";
-    out.close();
+    std::string content = "d4:data5:";
+    content += std::string("\x00\x01\x02\x03\x04", 5);
+    content += "e";
+    auto temp_file = CreateTempBinaryFile("temp_binary.torrent", content);
     
     TorrentReader reader(temp_file.string());
     const auto& root = reader.getRoot();
@@ -326,16 +321,11 @@ TEST_F(TorrentReaderTest, ParseBinaryString) {
     EXPECT_EQ(static_cast<unsigned char>(str[0]), 0x00);
     EXPECT_EQ(static_cast<unsigned char>(str[1]), 0x01);
     EXPECT_EQ(static_cast<unsigned char>(str[2]), 0x02);
-    
-    fs::remove(temp_file);
 }
 
 // Test mixed type list
 TEST_F(TorrentReaderTest, ParseMixedTypeList) {
-    auto temp_file = test_data_dir / "temp_mixed_list.torrent";
-    std::ofstream out(temp_file);
-    out << "d4:listli42e5:helloee";
-    out.close();
+    auto temp_file = CreateTempFile("temp_mixed_list.torrent", "d4:listli42e5:helloee");
     
     TorrentReader reader(temp_file.string());
     const auto& root = reader.getRoot();
@@ -352,6 +342,4 @@ TEST_F(TorrentReaderTest, ParseMixedTypeList) {
     
     EXPECT_TRUE(list[1].isString());
     EXPECT_EQ(list[1].asString(), "hello");
-    
-    fs::remove(temp_file);
 }
