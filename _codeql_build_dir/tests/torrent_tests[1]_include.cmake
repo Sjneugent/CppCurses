@@ -1,0 +1,5 @@
+if(EXISTS "/home/runner/work/CppCurses/CppCurses/_codeql_build_dir/tests/torrent_tests[1]_tests.cmake")
+  include("/home/runner/work/CppCurses/CppCurses/_codeql_build_dir/tests/torrent_tests[1]_tests.cmake")
+else()
+  add_test(torrent_tests_NOT_BUILT torrent_tests_NOT_BUILT)
+endif()

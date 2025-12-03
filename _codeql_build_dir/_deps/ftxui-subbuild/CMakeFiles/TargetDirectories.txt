@@ -1,0 +1,3 @@
+/home/runner/work/CppCurses/CppCurses/_codeql_build_dir/_deps/ftxui-subbuild/CMakeFiles/ftxui-populate.dir
+/home/runner/work/CppCurses/CppCurses/_codeql_build_dir/_deps/ftxui-subbuild/CMakeFiles/edit_cache.dir
+/home/runner/work/CppCurses/CppCurses/_codeql_build_dir/_deps/ftxui-subbuild/CMakeFiles/rebuild_cache.dir
