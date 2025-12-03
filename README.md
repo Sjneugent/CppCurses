@@ -32,6 +32,22 @@ cmake --build .
 ./build/TerminalCPP [path/to/file.torrent]
 ```
 
+## Testing
+
+The project includes a comprehensive test suite with 40 unit tests covering the core components:
+
+```bash
+# Build and run tests
+cd build
+cmake --build . --target torrent_tests
+./tests/torrent_tests
+
+# Or use CTest
+ctest --output-on-failure
+```
+
+See [tests/README.md](tests/README.md) for detailed information about the test suite.
+
 
 ## Architecture
 
