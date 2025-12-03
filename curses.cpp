@@ -154,11 +154,11 @@ Component FromDict(Component prefix, const TorrentValue & val, bool is_last, int
 }
 Component FromString(const TorrentValue & val, bool is_last)
 {
-  return Basic("\"" + val.asString() + "\"", Color::Green, is_last);
+  return Basic( formatValuePreview(val), Color::Green, is_last);
 }
 Component FromNumber(const TorrentValue & val, bool is_last)
 {
-  return Basic( std::to_string(val.asInt()), Color::Cyan, is_last);
+  return Basic( formatValuePreview(val), Color::Cyan, is_last);
 }
 
 Component Empty() {
