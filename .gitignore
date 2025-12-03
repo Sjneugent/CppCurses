@@ -2,4 +2,5 @@ build/
 *.exe
 *.so
 *.torrent
+!tests/data/*.torrent
 .vscode/**
