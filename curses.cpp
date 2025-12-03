@@ -13,6 +13,19 @@
 using namespace ftxui;
 
 using std::make_shared;
+Component FromBinaryModel(std::function<void()> view_modal, std::function<void()> hide_modal, std::string data)
+{
+  std::cout << "Constructing FromBinaryModel\n";
+  auto component = Container::Vertical({Button("View Data", view_modal), Button("Hide Data", hide_modal)});
+  component |= Renderer([&](Element inner)
+                        { return vbox({
+                                     text("Binary Data:") | bold,
+                                     inner,
+                                 }) |
+                                 size(WIDTH, GREATER_THAN, 100) | border; });
+  return component;
+}
+
 /// Functions Unimplemented, From, FromList, FromDict, FromString, etc are heavily borrowed from json tui.
 Component Unimplemented()
 {
@@ -77,7 +90,7 @@ Component FromList(Component prefix, const TorrentList &list, bool is_last, int 
         auto child_expander = expander_->Child();
         children->Add(Indentation(From(t, is_children_last, depth + 1, child_expander)));
       }
-
+      // TODO: These aren't needed since we're not pretending like it's JSON
       if (is_last)
       {
         children->Add(Renderer([]
@@ -175,6 +188,23 @@ int main(int argc, const char **argv)
 
   TorrentReader tr(torrent_path);
   TorrentExpander expander = TorrentExpanderImpl::Root();
+  bool modal_shown = false;
+
+  auto show_modal = [&]()
+  {
+    modal_shown = true;
+  };
+  auto hide_modal = [&]()
+  {
+    modal_shown = false;
+  };
+
+  auto set_modal_content = [&](std::string data)
+  {
+    std::cout << "set_modal_content called\n";
+    modal_shown = true;
+  };
+  auto modal_component = FromBinaryModel(show_modal, hide_modal, "Binary Data Here");
   if (!tr.isValidTorrent())
   {
     std::cerr << "Error: Invalid torrent file: " << torrent_path << "\n";
@@ -190,13 +220,18 @@ int main(int argc, const char **argv)
                                 separator(),
                                 text("Ctrl-C to quit") | italic | center | color(Color::GrayLight),
                                 app->Render() | yframe | xflex | bgcolor(Color::Grey19)}) |
-                          border | center | bgcolor(Color::Grey23); });
+                          border | center | bgcolor(Color::Grey23); }); // end app = Renderer
   auto screen = ScreenInteractive::Fullscreen();
   Event previous_event, next_event;
   auto wrapped_component = CatchEvent(app, [&](Event event)
                                       {
     previous_event = next_event;
     next_event = event;
+    if(event == Event::CtrlO){
+      std::cout << "Ctrl-O Pressed\nModal Shown " << modal_shown << "\n";
+      modal_shown = !modal_shown;
+      return true;
+    }
         if (event == Event::Character('G')) {
       while (app->OnEvent(Event::ArrowUp))
         ;
@@ -228,6 +263,7 @@ int main(int argc, const char **argv)
     }
     return false; });
 
+    wrapped_component |= Modal(modal_component, &modal_shown);
   screen.Loop(wrapped_component);
 
   return EXIT_SUCCESS;
