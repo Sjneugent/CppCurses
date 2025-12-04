@@ -69,12 +69,10 @@ jobs:
       shell: bash
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
-        # Set platform-specific binary extension and names
+        # Set platform-specific names
         if [ "${{ runner.os }}" == "Windows" ]; then
-          echo "binary-ext=.exe" >> "$GITHUB_OUTPUT"
           echo "platform=windows" >> "$GITHUB_OUTPUT"
         else
-          echo "binary-ext=" >> "$GITHUB_OUTPUT"
           echo "platform=linux" >> "$GITHUB_OUTPUT"
         fi
 
@@ -126,10 +124,18 @@ jobs:
             cp "${{ steps.strings.outputs.build-output-dir }}/Release/TerminalCPP.exe" "artifacts/TerminalCPP-${{ steps.strings.outputs.platform }}-${{ matrix.compiler_name }}.exe"
           elif [ -f "${{ steps.strings.outputs.build-output-dir }}/TerminalCPP.exe" ]; then
             cp "${{ steps.strings.outputs.build-output-dir }}/TerminalCPP.exe" "artifacts/TerminalCPP-${{ steps.strings.outputs.platform }}-${{ matrix.compiler_name }}.exe"
+          else
+            echo "Error: TerminalCPP.exe not found in expected locations"
+            exit 1
           fi
         else
           # For Linux, binary is directly in build folder
-          cp "${{ steps.strings.outputs.build-output-dir }}/TerminalCPP" "artifacts/TerminalCPP-${{ steps.strings.outputs.platform }}-${{ matrix.compiler_name }}"
+          if [ -f "${{ steps.strings.outputs.build-output-dir }}/TerminalCPP" ]; then
+            cp "${{ steps.strings.outputs.build-output-dir }}/TerminalCPP" "artifacts/TerminalCPP-${{ steps.strings.outputs.platform }}-${{ matrix.compiler_name }}"
+          else
+            echo "Error: TerminalCPP not found in expected location"
+            exit 1
+          fi
         fi
         
         ls -lh artifacts/
