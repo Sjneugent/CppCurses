@@ -21,7 +21,7 @@ set(FTXUI_BUILD_MODULES ON)
 FetchContent_MakeAvailable(ftxui)
 
 if(NOT ftxui_POPULATED) 
-  FetchCoontent_Populate(ftxui)
+  FetchContent_Populate(ftxui)
   add_subdirectory(${ftxui_SOURCE_DIR} ${ftxui_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 add_executable(${PROJECT_NAME} curses.cpp torrent_reader.h torrent_reader.cpp torrent_expander.h torrent_expander.cpp torrent_toggle.h torrent_toggle.cpp torrent_formatter.h file_browser.h file_browser.cpp help_page.h help_page.cpp multi_viewer.h multi_viewer.cpp) 
