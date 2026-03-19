@@ -19,12 +19,13 @@ FetchContent_Declare(ftxui
 
 set(FTXUI_BUILD_MODULES ON)
 FetchContent_MakeAvailable(ftxui)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(NOT ftxui_POPULATED) 
   FetchCoontent_Populate(ftxui)
   add_subdirectory(${ftxui_SOURCE_DIR} ${ftxui_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
-add_executable(${PROJECT_NAME} curses.cpp torrent_reader.h torrent_reader.cpp torrent_expander.h torrent_expander.cpp torrent_toggle.h torrent_toggle.cpp torrent_formatter.h) 
+add_executable(${PROJECT_NAME} curses.cpp torrent_reader.h torrent_reader.cpp torrent_expander.h torrent_expander.cpp torrent_toggle.h torrent_toggle.cpp torrent_formatter.h torrent_logger.h torrent_logger.cpp) 
 target_link_libraries(${PROJECT_NAME}    PRIVATE ftxui::screen
   PRIVATE ftxui::dom
   PRIVATE ftxui::component)

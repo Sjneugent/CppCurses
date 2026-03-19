@@ -1,5 +1,4 @@
 #include "torrent_reader.h"
-#include <sstream>
 
 // --- TorrentValue Implementation ---
 
@@ -7,13 +6,13 @@
 struct ValuePrinter {
   std::ostream &os;
 
-  void operator()(const TorrentInt &val) { os << val; }
-  void operator()(const TorrentString &val) {
+  void operator()(const TorrentInt &val) const { os << val; }
+  void operator()(const TorrentString &val) const {
     // Print strings generally; for torrents, some are binary, so be careful.
     // For display purposes, we might want to quote them or print hex if
     // non-printable.
     bool printable = true;
-    for (char c : val) {
+    for (const char c : val) {
       if (!isprint(static_cast<unsigned char>(c))) {
         printable = false;
         break;
@@ -24,7 +23,7 @@ struct ValuePrinter {
     else
       os << "<binary data: " << val.size() << " bytes>";
   }
-  void operator()(const TorrentList &val) {
+  void operator()(const TorrentList &val) const {
     os << "[";
     for (size_t i = 0; i < val.size(); ++i) {
       os << val[i];
@@ -33,7 +32,7 @@ struct ValuePrinter {
     }
     os << "]";
   }
-  void operator()(const TorrentDict &val) {
+  void operator()(const TorrentDict &val) const {
     os << "{";
     auto it = val.begin();
     while (it != val.end()) {
@@ -97,10 +96,10 @@ DictView TorrentReader::field() const {
     throw std::runtime_error(
         "Root is not a dictionary (Invalid torrent structure)");
   }
-  return DictView(root.asDict());
+  return {root.asDict()};
 }
 
-const TorrentValue &TorrentReader::getRoot() const { return root; }
+auto TorrentReader::getRoot() const -> const TorrentValue & { return root; }
 
 // --- Parser Logic ---
 
@@ -116,7 +115,7 @@ char TorrentReader::consume() {
   return source_data[pos++];
 }
 
-bool TorrentReader::match(char expected) {
+bool TorrentReader::match(const char expected) {
   if (peek() == expected) {
     consume();
     return true;
@@ -124,7 +123,7 @@ bool TorrentReader::match(char expected) {
   return false;
 }
 
-void TorrentReader::expect(char expected) {
+void TorrentReader::expect(const char expected) {
   if (consume() != expected) {
     throw std::runtime_error(std::string("Expected '") + expected +
                              "' at position " + std::to_string(pos));
@@ -132,7 +131,7 @@ void TorrentReader::expect(char expected) {
 }
 
 TorrentValue TorrentReader::parseElement() {
-  char c = peek();
+  const char c = peek();
   if (isdigit(c))
     return {parseString()};
   if (c == 'i')
@@ -148,11 +147,11 @@ TorrentValue TorrentReader::parseElement() {
 
 TorrentInt TorrentReader::parseInt() {
   expect('i');
-  size_t end = source_data.find('e', pos);
+  const size_t end = source_data.find('e', pos);
   if (end == std::string::npos)
     throw std::runtime_error("Unterminated integer");
 
-  std::string numStr = source_data.substr(pos, end - pos);
+  const std::string numStr = source_data.substr(pos, end - pos);
   pos = end + 1; // Skip 'e'
 
   if (numStr == "-0")
@@ -168,12 +167,12 @@ TorrentInt TorrentReader::parseInt() {
 }
 
 TorrentString TorrentReader::parseString() {
-  size_t colon = source_data.find(':', pos);
+  const size_t colon = source_data.find(':', pos);
   if (colon == std::string::npos)
     throw std::runtime_error("Invalid string length format");
 
-  std::string lenStr = source_data.substr(pos, colon - pos);
-  long long len = std::stoll(lenStr);
+  const std::string lenStr = source_data.substr(pos, colon - pos);
+  const long long len = std::stoll(lenStr);
 
   pos = colon + 1; // Skip ':'
 
@@ -209,11 +208,11 @@ TorrentDict TorrentReader::parseDict() {
   return dict;
 }
 
-// Simple validator: root must be a dictionary and contain at least an "info" key.
-// Additional checks (announce, piece length, etc.) can be added later.
+// Simple validator: root must be a dictionary and contain at least an "info"
+// key. Additional checks (announce, piece length, etc.) can be added later.
 bool TorrentReader::isValidTorrent() const {
   if (!root.isDict())
     return false;
   const auto &dict = root.asDict();
-  return dict.find("info") != dict.end();
+  return dict.contains("info");
 }

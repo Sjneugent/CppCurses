@@ -1,71 +1,63 @@
 // Use of this source code is governed by the MIT license that can be found in
 // the LICENSE file.
+#include "torrent_expander.h"
+#include "torrent_formatter.h"
 #include "torrent_reader.h"
+#include "torrent_toggle.h"
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <ftxui/dom/elements.hpp>
-#include <sstream>
 #include <memory>
 #include <string>
-#include "torrent_expander.h"
-#include "torrent_toggle.h"
-#include "torrent_formatter.h"
 using namespace ftxui;
 
-using std::make_shared;
-Component FromBinaryModel(std::function<void()> view_modal, std::function<void()> hide_modal, std::string data)
-{
-  std::cout << "Constructing FromBinaryModel\n";
-  auto component = Container::Vertical({Button("View Data", view_modal), Button("Hide Data", hide_modal)});
-  component |= Renderer([&](Element inner)
-                        { return vbox({
-                                     text("Binary Data:") | bold,
-                                     inner,
-                                 }) |
-                                 size(WIDTH, GREATER_THAN, 100) | border; });
+static std::string selected_data;
+Component FromBinaryModel(const std::function<void()> &view_modal,
+                          const std::function<void()> &hide_modal,
+                          std::string data) {
+  auto component = Container::Vertical(
+      {Button("View Data", view_modal), Button("Hide Data", hide_modal)});
+  component |= Renderer([&](Element inner) {
+    return vbox({
+               paragraph(selected_data) | italic,
+               inner,
+           }) |
+           size(WIDTH, GREATER_THAN, 100) | border;
+  });
   return component;
 }
 
-/// Functions Unimplemented, From, FromList, FromDict, FromString, etc are heavily borrowed from json tui.
-Component Unimplemented()
-{
-  return Renderer([]
-                  { return text("Unimplemented"); });
+/// Functions Unimplemented, From, FromList, FromDict, FromString, etc are
+/// heavily borrowed from json tui.
+Component Unimplemented() {
+  return Renderer([] { return text("Unimplemented"); });
 }
-Component FakeHorizontal(Component a, Component b)
-{
-  auto c = Container::Vertical({a, b});
+Component FakeHorizontal(const Component &a, const Component &b) {
+  const auto c = Container::Vertical({a, b});
   c->SetActiveChild(b);
 
-  return Renderer(c, [a, b]
-                  { return hbox({
-                        a->Render(),
-                        b->Render(),
-                    }); });
+  return Renderer(c, [a, b] {
+    return hbox({
+        a->Render(),
+        b->Render(),
+    });
+  });
 }
 /**
- * TODO: This structure doesn't fit 1:1 with torrent data, need to adjust.  Works beautifully for JSON tho
+ * TODO: This structure doesn't fit 1:1 with torrent data, need to adjust. Works
+ * beautifully for JSON tho
  */
-Component From(const TorrentValue &tval, bool is_last, int depth, TorrentExpander &expander)
-{
-  if (tval.isDict())
-  {
-    return FromDict(Empty(), tval, is_last, depth, expander);
-  }
-  else if (tval.isList())
-  {
-    return FromList(Empty(), tval.asList(), is_last, depth, expander);
-  }
-  else if (tval.isInt())
-  {
-    return FromNumber(tval, is_last);
-  }
-  else if (tval.isString())
-  {
-    return FromString(tval, is_last);
-  }
-  else
-  {
+Component From(const TorrentValue &val, const bool is_last, const int depth,
+               TorrentExpander &expander) {
+  if (val.isDict()) {
+    return FromDict(Empty(), val, is_last, depth, expander);
+  } else if (val.isList()) {
+    return FromList(Empty(), val.asList(), is_last, depth, expander);
+  } else if (val.isInt()) {
+    return FromNumber(val, is_last);
+  } else if (val.isString()) {
+    return FromString(val, is_last);
+  } else {
     return Unimplemented();
   }
 }
@@ -73,36 +65,31 @@ Component From(const TorrentValue &tval, bool is_last, int depth, TorrentExpande
 /**
  * @brief Create a list view component
  */
-Component FromList(Component prefix, const TorrentList &list, bool is_last, int depth, TorrentExpander &expander)
-{
-  class Impl : public ComponentExpandable
-  {
+Component FromList(const Component &prefix, const TorrentList &list,
+                   bool is_last, int depth, TorrentExpander &expander) {
+  class Impl : public ComponentExpandable {
   public:
-    Impl(Component prefix, const TorrentList &list, bool is_last, int depth, TorrentExpander &expander)
-        : ComponentExpandable(expander), prefix_(prefix), tlist_(list), is_last_(is_last), depth_(depth)
-    {
+    Impl(const Component &prefix, const TorrentList &list, const bool is_last,
+         const int depth, TorrentExpander &expander)
+        : ComponentExpandable(expander), prefix_(prefix), tlist_(list),
+          is_last_(is_last), depth_(depth) {
       Expanded() = (depth <= 0);
-      auto children = Container::Vertical({});
+      const auto children = Container::Vertical({});
       int size = static_cast<int>(list.size());
-      for (auto &t : list)
-      {
-        bool is_children_last = --size == 0;
+      for (auto &t : list) {
+        const bool is_children_last = --size == 0;
         auto child_expander = expander_->Child();
-        children->Add(Indentation(From(t, is_children_last, depth + 1, child_expander)));
+        children->Add(
+            Indentation(From(t, is_children_last, depth + 1, child_expander)));
       }
       // TODO: These aren't needed since we're not pretending like it's JSON
-      if (is_last)
-      {
-        children->Add(Renderer([]
-                               { return text(" "); }));
+      if (is_last) {
+        children->Add(Renderer([] { return text(" "); }));
+      } else {
+        children->Add(Renderer([] { return text(" "); }));
       }
-      else
-      {
-        children->Add(Renderer([]
-                               { return text(" "); }));
-      }
-      //"▼ " : "▶ "
-      auto toggle = TorrentToggle("▼", is_last ? "▶" : "▶,", &Expanded());
+
+      const auto toggle = TorrentToggle("▼", is_last ? "▶" : "▶,", &Expanded());
       auto upper = Container::Horizontal({FakeHorizontal(prefix_, toggle)});
       Add(Container::Vertical({upper, Maybe(children, &Expanded())}));
     };
@@ -116,73 +103,71 @@ Component FromList(Component prefix, const TorrentList &list, bool is_last, int 
 /**
  *
  */
-Component Basic(std::string value, Color c, bool is_last)
-{
-  return Renderer([value, c, is_last](bool focused)
-                  {
+Component Basic(const std::string &value, Color c, bool is_last) {
+  return Renderer([value, c, is_last](const bool focused) {
     auto element = paragraph(value) | color(c);
     if (focused)
-      element = element | bgcolor(Color::Blue) | color(Color::White) | bold | focus;
+      element =
+          element | bgcolor(Color::Blue) | color(Color::White) | bold | focus;
     if (!is_last)
       element = hbox({element, text("")});
-    return element; });
+    if (focused) {
+      selected_data = value;
+      std::cout << "Im focused at " << value << std::endl;
+    }
+    return element;
+  });
 }
 /**
  * @brief Create a dictionary view component
  */
-Component FromDict(Component prefix, const TorrentValue &val, bool is_last, int depth, TorrentExpander &expander)
-{
+Component FromDict(const Component &prefix, const TorrentValue &val,
+                   bool is_last, int depth, TorrentExpander &expander) {
 
-  class Impl : public ComponentExpandable
-  {
+  class Impl : public ComponentExpandable {
   public:
-    Impl(Component prefix, const TorrentValue &dict, bool is_last, int depth, TorrentExpander &expander)
-        : ComponentExpandable(expander)
-    {
+    Impl(const Component &prefix, const TorrentValue &dict, const bool is_last,
+         const int depth, TorrentExpander &expander)
+        : ComponentExpandable(expander) {
       Expanded() = (depth < 2);
       // Auto-expand first 2 levels
-      auto children = Container::Vertical({});
+      const Component children = Container::Vertical({});
       int size = static_cast<int>(dict.asDict().size());
 
-      for (const auto &[key, value] : dict.asDict())
-      {
+      for (const auto &[key, value] : dict.asDict()) {
         bool is_children_last = --size == 0;
-        auto prefix = Renderer([key, is_children_last]()
-                               {
+        const auto newPrefix = Renderer([key, is_children_last]() {
           auto element = text(key + ": ") | color(Color::Yellow);
 
-          return element; });
-        children->Add(prefix);
+          return element;
+        });
+        children->Add(newPrefix);
         auto child_expander = expander_->Child();
-        children->Add(Indentation(From(value, is_children_last, depth + 1, child_expander)));
+        children->Add(Indentation(
+            From(value, is_children_last, depth + 1, child_expander)));
       }
-      auto toggle = TorrentToggle("▼", is_last ? "▶" : "▶", &Expanded());
-      Add(Container::Vertical({FakeHorizontal(prefix, toggle), Maybe(children, &Expanded())}));
+      const auto toggle = TorrentToggle("▼", is_last ? "▶" : "▶", &Expanded());
+      Add(Container::Vertical(
+          {FakeHorizontal(prefix, toggle), Maybe(children, &Expanded())}));
     };
   };
   return Make<Impl>(prefix, val, is_last, depth, expander);
 }
-Component FromString(const TorrentValue &val, bool is_last)
-{
+Component FromString(const TorrentValue &val, const bool is_last) {
   return Basic(formatValuePreview(val), Color::Green, is_last);
 }
-Component FromNumber(const TorrentValue &val, bool is_last)
-{
+Component FromNumber(const TorrentValue &val, const bool is_last) {
   return Basic(formatValuePreview(val), Color::Cyan, is_last);
 }
 
-Component Empty()
-{
-  return Renderer([]
-                  { return text(""); });
+Component Empty() {
+  return Renderer([] { return text(""); });
 }
 
-int main(int argc, const char **argv)
-{
+int main(int argc, const char **argv) {
   std::string torrent_path = "/home/backltrack/debian.torrent";
 
-  if (argc >= 2)
-  {
+  if (argc >= 2) {
     torrent_path = argv[1];
   }
 
@@ -190,23 +175,15 @@ int main(int argc, const char **argv)
   TorrentExpander expander = TorrentExpanderImpl::Root();
   bool modal_shown = false;
 
-  auto show_modal = [&]()
-  {
-    modal_shown = true;
-  };
-  auto hide_modal = [&]()
-  {
-    modal_shown = false;
-  };
+  auto show_modal = [&]() { modal_shown = true; };
+  auto hide_modal = [&]() { modal_shown = false; };
 
-  auto set_modal_content = [&](std::string data)
-  {
-    std::cout << "set_modal_content called\n";
+  auto set_modal_content = [&]([[maybe_unused]] const std::string &data) {
     modal_shown = true;
   };
-  auto modal_component = FromBinaryModel(show_modal, hide_modal, "Binary Data Here");
-  if (!tr.isValidTorrent())
-  {
+  auto modal_component =
+      FromBinaryModel(show_modal, hide_modal, "Binary Data Here");
+  if (!tr.isValidTorrent()) {
     std::cerr << "Error: Invalid torrent file: " << torrent_path << "\n";
     return EXIT_FAILURE;
   }
@@ -215,29 +192,34 @@ int main(int argc, const char **argv)
   // starts off as a dict,
   //
   auto app = From(root, true, 0, expander);
-  app = Renderer(app, [torrent_path, app]
-                 { return vbox({text("Torrent Viewer: " + torrent_path) | bold | center | color(Color::Cyan),
-                                separator(),
-                                text("Ctrl-C to quit") | italic | center | color(Color::GrayLight),
-                                app->Render() | yframe | xflex | bgcolor(Color::Grey19)}) |
-                          border | center | bgcolor(Color::Grey23); }); // end app = Renderer
+
+  app = Renderer(app, [torrent_path, app] {
+    return vbox({text("Torrent Viewer: " + torrent_path) | bold | center |
+                     color(Color::Cyan),
+                 separator(),
+                 text("Ctrl-C to quit") | italic | center |
+                     color(Color::GrayLight),
+                 app->Render() | yframe | xflex | bgcolor(Color::Grey19)}) |
+           border | center | bgcolor(Color::Grey23);
+  }); // end app = Renderer
   auto screen = ScreenInteractive::Fullscreen();
   Event previous_event, next_event;
-  auto wrapped_component = CatchEvent(app, [&](Event event)
-                                      {
+  auto wrapped_component = CatchEvent(app, [&](Event event) {
     previous_event = next_event;
     next_event = event;
-    if(event == Event::CtrlO){
-      std::cout << "Ctrl-O Pressed\nModal Shown " << modal_shown << "\n";
+    if (event == Event::ArrowDown) {
+    }
+    if (event == Event::CtrlO) {
+      std::cout << event.DebugString() << std::endl;
       modal_shown = !modal_shown;
       return true;
     }
-        if (event == Event::Character('G')) {
+    if (event == Event::Character('G')) {
       while (app->OnEvent(Event::ArrowUp))
         ;
       return true;
     }
-        if (previous_event == Event::Character('g') &&
+    if (previous_event == Event::Character('g') &&
         next_event == Event::Character('g')) {
       while (app->OnEvent(Event::ArrowDown))
         ;
@@ -261,9 +243,10 @@ int main(int argc, const char **argv)
       screen.PostEvent(Event::ArrowUp);
       return true;
     }
-    return false; });
+    return false;
+  });
 
-    wrapped_component |= Modal(modal_component, &modal_shown);
+  wrapped_component |= Modal(modal_component, &modal_shown);
   screen.Loop(wrapped_component);
 
   return EXIT_SUCCESS;

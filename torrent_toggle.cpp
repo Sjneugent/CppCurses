@@ -1,32 +1,34 @@
 #include "torrent_toggle.h"
 #include "ftxui/component/event.hpp"
-
+#include <iostream>
 namespace {
-    using namespace ftxui;
-
+using namespace ftxui;
 
 class TorrentToggleImpl : public ComponentBase {
- public:
-  TorrentToggleImpl(const char* label_on, const char* label_off, bool* state)
+public:
+  TorrentToggleImpl(const char *label_on, const char *label_off, bool *state)
       : label_on_(label_on), label_off_(label_off), state_(state) {}
 
- private:
+private:
   // Component implementation.
   Element OnRender() override {
     bool is_focused = Focused();
     bool is_active = Active();
-    auto style = (is_focused || hovered_) ? bgcolor(Color::Blue) | color(Color::White) | bold
-                 : is_active              ? bold
-                                          : nothing;
+    auto style = (is_focused || hovered_)
+                     ? bgcolor(Color::Blue) | color(Color::White) | bold
+                 : is_active ? bold
+                             : nothing;
     auto focus_management = is_focused  ? focus
                             : is_active ? ftxui::select
                                         : nothing;
 
     Element my_text = *state_ ? text(label_on_) : text(label_off_);
+    std::cout << " is_active = " << is_active << " is_focused  = " << is_focused
+              << std::endl;
     return my_text | style | focus_management | reflect(box_);
   }
 
-  bool OnEvent(Event event) override {
+  bool OnEvent(const Event event) override {
     if (!CaptureMouse(event))
       return false;
 
@@ -60,20 +62,18 @@ class TorrentToggleImpl : public ComponentBase {
     return false;
   }
 
-  bool Focusable() const final { return true; }
+  [[nodiscard]] bool Focusable() const final { return true; }
 
-  const char* label_on_;
-  const char* label_off_;
-  bool* const state_;
+  const char *label_on_;
+  const char *label_off_;
+  bool *const state_;
   bool hovered_ = false;
   Box box_;
 };
 
+} // namespace
 
-}
-
-ftxui::Component TorrentToggle(const char* label_on,
-                          const char* label_off,
-                          bool* state) {
+ftxui::Component TorrentToggle(const char *label_on, const char *label_off,
+                               bool *state) {
   return ftxui::Make<TorrentToggleImpl>(label_on, label_off, state);
 }

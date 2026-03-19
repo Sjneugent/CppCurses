@@ -1,39 +1,32 @@
 #include "torrent_expander.h"
 #include <algorithm>
-
 // TorrentExpanderImpl Implementation from json-tui
 // MIT or something
-TorrentExpanderImpl::~TorrentExpanderImpl() 
-{
+TorrentExpanderImpl::~TorrentExpanderImpl() {
   if (parent_) {
-    parent_->children_.erase(
-        std::remove(parent_->children_.begin(), parent_->children_.end(), this),
-        parent_->children_.end());
+
+    std::erase(parent_->children_, this);
     parent_ = nullptr;
   }
 
   // Remove this from children:
-  for (auto& child : children_) {
+  for (const auto &child : children_) {
     child->parent_ = nullptr;
   }
 }
 
-TorrentExpander TorrentExpanderImpl::Root() 
-{
+TorrentExpander TorrentExpanderImpl::Root() {
   return std::make_unique<TorrentExpanderImpl>();
 }
 
-TorrentExpander TorrentExpanderImpl::Child() 
-{
+TorrentExpander TorrentExpanderImpl::Child() {
   auto child = std::make_unique<TorrentExpanderImpl>();
   child->parent_ = this;
   children_.push_back(child.get());
   return child;
 }
 
-void TorrentExpanderImpl::SetExpanded(bool value) {
-  expanded = value;
-}
+void TorrentExpanderImpl::SetExpanded(const bool value) { expanded = value; }
 
 bool TorrentExpanderImpl::Toggle() {
   expanded = !expanded;
@@ -56,11 +49,11 @@ int TorrentExpanderImpl::MinLevel() const {
   if (!expanded) {
     return 0;
   }
-  if (children_.size() == 0) {
+  if (children_.empty()) {
     return 1;
   }
   int min_level = 999999;
-  for (auto& child : children_) {
+  for (auto &child : children_) {
     min_level = std::min(min_level, 1 + child->MinLevel());
   }
   return min_level;
@@ -71,7 +64,7 @@ int TorrentExpanderImpl::MaxLevel() const {
     return 0;
   }
   int max_level = 1;
-  for (auto& child : children_) {
+  for (auto &child : children_) {
     max_level = std::max(max_level, 1 + child->MaxLevel());
   }
   return max_level;
@@ -82,7 +75,7 @@ void TorrentExpanderImpl::Expand(int minLevel) {
     return;
   expanded = true;
   minLevel--;
-  for (auto& child : children_) {
+  for (auto &child : children_) {
     child->Expand(minLevel);
   }
 }
@@ -92,7 +85,7 @@ void TorrentExpanderImpl::Collapse(int maxLevel) {
     expanded = false;
   }
   maxLevel--;
-  for (auto& child : children_) {
+  for (const auto &child : children_) {
     child->Collapse(maxLevel);
   }
 }

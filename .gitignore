@@ -4,3 +4,5 @@ build/
 *.torrent
 !tests/data/*.torrent
 .vscode/**
+/cmake-build-debug/
+.cache/
