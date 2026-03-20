@@ -15,7 +15,7 @@ set(FTXUI_BUILD_DOCS ON)
 set(FTXUI_DEV_WARNINGS ON)
 FetchContent_Declare(ftxui 
     GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI.git
-    GIT_TAG        v6.1.8)
+    GIT_TAG        v6.1.9)
 
 set(FTXUI_BUILD_MODULES ON)
 FetchContent_MakeAvailable(ftxui)
