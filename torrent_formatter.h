@@ -19,19 +19,16 @@ public:
   ComponentExpandable(TorrentExpander &expander)
       : expander_(expander)
   {
-    std::cout << "ComponentExpandable created\n";
   }
 
   bool &Expanded()
   {
-    std::cout << "Expanded() called\n";
     return expander_->expanded;
   }
   bool OnEvent(Event event) override
   {
     if (ComponentBase::OnEvent(event))
     {
-      std::cout << "Event handled by base\n";
       return true;
     }
 
