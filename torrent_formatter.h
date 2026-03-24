@@ -22,12 +22,19 @@ Component FromKeyValue(Component prefix, const TorrentValue &val,
 /// @brief  Component that can be expanded/collapsed
 class ComponentExpandable : public ComponentBase {
 public:
-  explicit ComponentExpandable(TorrentExpander &expander)
-      : expander_(expander) {}
+  ComponentExpandable(TorrentExpander &expander)
+      : expander_(expander)
+  {
+  }
 
-  [[nodiscard]] bool &Expanded() const { return expander_->expanded; }
-  bool OnEvent(const Event event) override {
-    if (ComponentBase::OnEvent(event)) {
+  bool &Expanded()
+  {
+    return expander_->expanded;
+  }
+  bool OnEvent(Event event) override
+  {
+    if (ComponentBase::OnEvent(event))
+    {
       return true;
     }
 
