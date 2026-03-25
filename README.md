@@ -92,3 +92,8 @@ MIT License (inherited from FTXUI)
 - FTXUI v6.1.8+ (automatically fetched by CMake)
 - C++17 or later
 - CMake 3.28+
+
+## Images 
+![Browsewr](https://imgur.com/EKGjtOY)
+![Example Torrent](https://imgur.com/akTxPOq)
+![Help Page](https://imgur.com/ENwcaqI)
