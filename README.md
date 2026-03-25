@@ -94,6 +94,6 @@ MIT License (inherited from FTXUI)
 - CMake 3.28+
 
 ## Images 
-![Browsewr](https://imgur.com/EKGjtOY)
-![Example Torrent](https://imgur.com/akTxPOq)
-![Help Page](https://imgur.com/ENwcaqI)
+<img width="1076" height="562" alt="Screenshot 2026-03-24 172030" src="https://github.com/user-attachments/assets/08cfeb10-11d4-4323-9c22-5dcff21a82cc" />
+<img width="1066" height="555" alt="Screenshot 2026-03-24 172058" src="https://github.com/user-attachments/assets/cb2a2896-b5d4-4f07-99f8-a841859d4df0" />
+<img width="1087" height="569" alt="Screenshot 2026-03-24 172115" src="https://github.com/user-attachments/assets/2c070c2d-fda0-4752-90d7-bae2f04d2a42" />
